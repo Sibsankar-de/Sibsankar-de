@@ -1,26 +1,88 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #f7f3ea;
+  --surface: #fffdf8;
+  --ink: #111111;
+  --muted: #625f57;
+  --primary: #00b8d4;
+  --primary-foreground: #071216;
+  --secondary: #315bff;
+  --secondary-foreground: #ffffff;
+  --highlight: #ffc857;
+  --highlight-foreground: #17120a;
+  --line: #111111;
+  --image-bg: #1a1a1a;
+  --danger: #db3025;
+  --success: #197a43;
+}
+
+:root[data-theme="dark"] {
+  --canvas: #0d0f14;
+  --surface: #1a1d26;
+  --ink: #f5f7fa;
+  --muted: #adb4c0;
+  --primary: #d6ff3e;
+  --primary-foreground: #131707;
+  --secondary: #5965f2;
+  --secondary-foreground: #ffffff;
+  --highlight: #ffb703;
+  --highlight-foreground: #17120a;
+  --line: #f5f7fa;
+  --image-bg: #1a1a1a;
+  --danger: #ff7972;
+  --success: #79e2a3;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-line: var(--line);
+  --color-image-bg: var(--image-bg);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-dm-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--line);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
