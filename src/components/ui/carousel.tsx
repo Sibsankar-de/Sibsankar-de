@@ -118,7 +118,7 @@ export function ImageCarousel({ images, title = "Project Image", className }: Im
             <>
               <button
                 aria-label="Previous slide"
-                className="absolute left-3 top-1/2 -translate-y-1/2 border-2 border-line bg-surface p-2 text-ink shadow-[3px_3px_0_var(--line)] transition-all hover:bg-primary hover:text-primary-foreground hover:translate-x-0.5"
+                className="absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer border-2 border-line bg-surface p-2 text-ink shadow-[3px_3px_0_var(--line)] transition-all hover:bg-primary hover:text-primary-foreground hover:translate-x-0.5"
                 onClick={handlePrev}
                 type="button"
               >
@@ -126,7 +126,7 @@ export function ImageCarousel({ images, title = "Project Image", className }: Im
               </button>
               <button
                 aria-label="Next slide"
-                className="absolute right-3 top-1/2 -translate-y-1/2 border-2 border-line bg-surface p-2 text-ink shadow-[3px_3px_0_var(--line)] transition-all hover:bg-primary hover:text-primary-foreground hover:-translate-x-0.5"
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer border-2 border-line bg-surface p-2 text-ink shadow-[3px_3px_0_var(--line)] transition-all hover:bg-primary hover:text-primary-foreground hover:-translate-x-0.5"
                 onClick={handleNext}
                 type="button"
               >
@@ -165,30 +165,96 @@ export function ImageCarousel({ images, title = "Project Image", className }: Im
         {isFullscreen && (
           <motion.div
             animate={{ opacity: 1 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 sm:p-8 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
             exit={{ opacity: 0 }}
             initial={{ opacity: 0 }}
           >
+            {/* Close button */}
             <button
               aria-label="Close fullscreen view"
-              className="absolute right-4 top-4 border-2 border-line bg-surface p-2 font-mono text-xs uppercase text-ink shadow-[3px_3px_0_var(--line)] hover:bg-danger hover:text-canvas"
+              className="absolute right-4 top-4 z-10 cursor-pointer border-2 border-line bg-surface p-2 font-mono text-xs uppercase text-ink shadow-[3px_3px_0_var(--line)] hover:bg-danger hover:text-canvas"
               onClick={() => setIsFullscreen(false)}
               type="button"
             >
               <X size={20} />
             </button>
 
-            <div className="relative max-h-[90vh] max-w-[90vw] overflow-hidden border-2 border-line bg-surface p-2 shadow-[8px_8px_0_var(--line)]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt={`${title} enlarged view`}
-                className="max-h-[85vh] max-w-[85vw] object-contain"
-                src={currentImage.image_url}
-              />
+            {/* Counter */}
+            <div className="absolute left-4 top-4 z-10 border-2 border-line bg-surface px-3 py-1.5 font-mono text-xs uppercase text-ink shadow-[3px_3px_0_var(--line)]">
+              {String(currentIndex + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}
             </div>
+
+            {/* Image area */}
+            <div className="relative flex h-full w-full items-center justify-center p-12 sm:p-16">
+              <AnimatePresence custom={direction} initial={false} mode="popLayout">
+                <motion.div
+                  animate="center"
+                  className="flex max-h-[85vh] max-w-[88vw] items-center justify-center"
+                  custom={direction}
+                  exit="exit"
+                  initial="enter"
+                  key={`lightbox-${currentIndex}`}
+                  transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
+                  variants={slideVariants}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    alt={`${title} enlarged view ${currentIndex + 1}`}
+                    className="max-h-[85vh] max-w-[88vw] border-2 border-line object-contain shadow-[8px_8px_0_var(--line)]"
+                    src={currentImage.image_url}
+                  />
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Prev / Next arrows */}
+              {total > 1 && (
+                <>
+                  <button
+                    aria-label="Previous image"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 cursor-pointer border-2 border-line bg-surface p-3 text-ink shadow-[3px_3px_0_var(--line)] transition-all hover:bg-primary hover:text-primary-foreground hover:translate-x-0.5"
+                    onClick={handlePrev}
+                    type="button"
+                  >
+                    <ChevronLeft size={24} />
+                  </button>
+                  <button
+                    aria-label="Next image"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer border-2 border-line bg-surface p-3 text-ink shadow-[3px_3px_0_var(--line)] transition-all hover:bg-primary hover:text-primary-foreground hover:-translate-x-0.5"
+                    onClick={handleNext}
+                    type="button"
+                  >
+                    <ChevronRight size={24} />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Pagination dots */}
+            {total > 1 && (
+              <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 items-center gap-2">
+                {sortedImages.map((_, idx) => (
+                  <button
+                    aria-label={`Go to image ${idx + 1}`}
+                    className={cn(
+                      "size-3 cursor-pointer border-2 transition-all",
+                      idx === currentIndex
+                        ? "border-line bg-primary shadow-[2px_2px_0_var(--line)] scale-110"
+                        : "border-line bg-surface opacity-70 hover:bg-primary/50",
+                    )}
+                    key={`lb-dot-${idx}`}
+                    onClick={() => {
+                      setDirection(idx > currentIndex ? 1 : -1);
+                      setCurrentIndex(idx);
+                    }}
+                    type="button"
+                  />
+                ))}
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
+
     </div>
   );
 }

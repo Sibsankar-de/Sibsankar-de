@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/Sibsankar-de"><img src="https://img.shields.io/github/followers/Sibsankar-de?label=Followers&style=flat-square&color=00b8d4&logo=github" alt="GitHub Followers" /></a>
-  <a href="https://leetcode.com/u/sibsankar_de"><img src="https://img.shields.io/badge/LeetCode-300%2B_Solved-FFA116?style=flat-square&logo=leetcode&logoColor=black" alt="LeetCode" /></a>
+  <a href="https://leetcode.com/u/sibsankar_de"><img src="https://img.shields.io/badge/LeetCode-350%2B_Solved-FFA116?style=flat-square&logo=leetcode&logoColor=black" alt="LeetCode" /></a>
   <a href="https://linkedin.com/in/sibsankar-de"><img src="https://img.shields.io/badge/LinkedIn-Connect-0A66C2?style=flat-square&logo=linkedin" alt="LinkedIn" /></a>
 </p>
 
@@ -38,8 +38,8 @@ I build high-performance backend systems and full-stack web applications designe
 ## 📊 Activity & Streak
 
 <p align="center">
-  <img src="https://streak-stats.demolab.com?user=Sibsankar-de&theme=radical&background=0D1117&border=00B8D4" alt="GitHub Streak" width="48%" />
-  <img src="https://github-readme-activity-graph.vercel.app/graph?username=Sibsankar-de&theme=react&bg_color=0D1117&color=00B8D4&line=00B8D4&point=FFFFFF" alt="Contribution Graph" width="48%" />
+  <img src="https://streak-stats.demolab.com?user=Sibsankar-de&theme=radical&background=ABD1C6&border=00B8D4" alt="GitHub Streak" width="48%" />
+  <img src="https://github-readme-activity-graph.vercel.app/graph?username=Sibsankar-de&theme=react&bg_color=ABD1C6&color=00B8D4&line=00B8D4&point=FFFFFF" alt="Contribution Graph" width="48%" />
 </p>
 
 ---

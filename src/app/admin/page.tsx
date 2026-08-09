@@ -57,7 +57,7 @@ export default async function AdminPage() {
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-          {/* Left — projects table + resume */}
+          {/* Left - projects table + resume */}
           <div className="space-y-8">
             {/* Projects */}
             <section className="border-2 border-line bg-surface shadow-[4px_4px_0_var(--line)]">
@@ -152,7 +152,7 @@ export default async function AdminPage() {
             </section>
           </div>
 
-          {/* Right — contact inbox */}
+          {/* Right - contact inbox */}
           <div>
             <section className="border-2 border-line bg-surface shadow-[4px_4px_0_var(--line)]">
               <div className="border-b-2 border-line px-5 py-4">
