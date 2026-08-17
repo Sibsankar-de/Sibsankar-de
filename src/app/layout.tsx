@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Mono, Space_Grotesk } from "next/font/google";
+import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import "./globals.css";
 
@@ -93,7 +94,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${spaceGrotesk.variable} ${dmMono.variable} min-h-screen bg-canvas font-sans text-ink`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          <Toaster
+            position="top-right"
+            richColors
+            toastOptions={{
+              className: "border-2 border-line font-mono text-xs shadow-[4px_4px_0_var(--line)]",
+            }}
+          />
+        </ThemeProvider>
       </body>
     </html>
   );

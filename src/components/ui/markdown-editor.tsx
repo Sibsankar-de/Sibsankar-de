@@ -10,7 +10,9 @@ import "@uiw/react-markdown-preview/markdown.css";
 const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
 
 interface MarkdownEditorProps {
+  value?: string;
   defaultValue?: string;
+  onChange?: (val: string) => void;
   name?: string;
   required?: boolean;
   rows?: number;
@@ -18,21 +20,33 @@ interface MarkdownEditorProps {
 }
 
 export function MarkdownEditor({
+  value: controlledValue,
   defaultValue = "",
+  onChange: onValueChange,
   name = "body",
   required = false,
   className,
 }: MarkdownEditorProps) {
-  const [value, setValue] = useState(defaultValue);
+  const [internalValue, setInternalValue] = useState(defaultValue);
+  const isControlled = controlledValue !== undefined;
+  const value = isControlled ? controlledValue : internalValue;
   const { resolvedTheme } = useTheme();
   const colorMode = resolvedTheme === "dark" ? "dark" : "light";
+
+  const handleChange = (val: string | undefined) => {
+    const nextVal = val || "";
+    if (!isControlled) {
+      setInternalValue(nextVal);
+    }
+    onValueChange?.(nextVal);
+  };
 
   return (
     <div className={cn("border-2 border-line bg-surface p-2 shadow-[4px_4px_0_var(--line)]", className)}>
       <div data-color-mode={colorMode}>
         <MDEditor
           height={480}
-          onChange={(val) => setValue(val || "")}
+          onChange={handleChange}
           preview="live"
           value={value}
         />

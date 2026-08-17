@@ -19,10 +19,10 @@ const socialPostSchema = new Schema(
 
 const projectSchema = new Schema(
   {
-    title: { type: String, required: true, trim: true, maxlength: 100 },
+    title: { type: String, required: true, trim: true, maxlength: 150 },
     slug: { type: String, required: true, trim: true, lowercase: true, unique: true, index: true },
-    summary: { type: String, required: true, trim: true, maxlength: 280 },
-    body: { type: String, required: true, trim: true, maxlength: 10000 },
+    summary: { type: String, required: true, trim: true, maxlength: 1000 },
+    body: { type: String, required: true, trim: true, maxlength: 50000 },
     stack: [{ type: String, trim: true }],
     socialPosts: { type: [socialPostSchema], default: [] },
     sourceUrl: { type: String, trim: true },

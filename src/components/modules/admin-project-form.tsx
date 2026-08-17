@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useTransition } from "react";
+import { toast } from "sonner";
 import type { ProjectImage, ProjectSocialPost, PublicProject } from "@/server/projects/types";
-import { uploadImageAction } from "@/app/admin/actions";
+import { uploadImagesAction, type ActionState } from "@/app/admin/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,10 +42,20 @@ export function AdminProjectForm({
   action,
   project,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (prevState: ActionState | void | undefined, formData: FormData) => Promise<ActionState | void> | ActionState | void;
   project?: EditableProject;
 }) {
   const label = project ? "Update project" : "Create project";
+
+  // Controlled form state (never resets on validation errors)
+  const [title, setTitle] = useState(project?.title ?? "");
+  const [slug, setSlug] = useState(project?.slug ?? "");
+  const [summary, setSummary] = useState(project?.summary ?? "");
+  const [body, setBody] = useState(project?.body ?? "");
+  const [sortOrder, setSortOrder] = useState<number>(project?.sortOrder ?? 0);
+  const [sourceUrl, setSourceUrl] = useState(project?.sourceUrl ?? "");
+  const [demoUrl, setDemoUrl] = useState(project?.demoUrl ?? "");
+  const [isPublished, setIsPublished] = useState<boolean>(project?.isPublished ?? true);
 
   // State for images
   const [images, setImages] = useState<ImageItem[]>(() => {
@@ -65,7 +76,6 @@ export function AdminProjectForm({
   const [customPlatform, setCustomPlatform] = useState("");
   const [postUrl, setPostUrl] = useState("");
 
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -108,7 +118,17 @@ export function AdminProjectForm({
     const selectedPlatform = platform === "Other" ? customPlatform.trim() : platform;
     const url = postUrl.trim();
 
-    if (!selectedPlatform || !url) return;
+    if (!selectedPlatform || !url) {
+      toast.error("Please provide both platform name and post URL.");
+      return;
+    }
+
+    try {
+      new URL(url);
+    } catch {
+      toast.error("Please enter a valid URL for the social post.");
+      return;
+    }
 
     setSocialPosts((prev) => [...prev, { platform: selectedPlatform, url }]);
     setPostUrl("");
@@ -121,26 +141,42 @@ export function AdminProjectForm({
 
   // Image handlers
   const handleFileUpload = (files: FileList | File[]) => {
-    const file = files[0];
-    if (!file) return;
+    const fileArray = Array.from(files).filter((f) => f && f.size > 0 && f.type.startsWith("image/"));
+    if (fileArray.length === 0) return;
 
-    setUploadError(null);
     startTransition(async () => {
       try {
         const formData = new FormData();
-        formData.append("file", file);
-        const result = await uploadImageAction(formData);
+        for (const file of fileArray) {
+          formData.append("files", file);
+        }
+        const uploadedResults = await uploadImagesAction(formData);
 
-        setImages((prev) => updatePriorities([...prev, { image_url: result.image_url, public_id: result.public_id }]));
+        setImages((prev) =>
+          updatePriorities([
+            ...prev,
+            ...uploadedResults.map((r) => ({
+              image_url: r.image_url,
+              public_id: r.public_id,
+            })),
+          ]),
+        );
         if (fileInputRef.current) fileInputRef.current.value = "";
+        toast.success(`Successfully uploaded ${uploadedResults.length} image(s).`);
       } catch (err) {
-        setUploadError(err instanceof Error ? err.message : "Image upload failed.");
+        toast.error(err instanceof Error ? err.message : "Image upload failed.");
       }
     });
   };
 
   const handleAddManualImage = () => {
     if (!manualUrl.trim()) return;
+    try {
+      new URL(manualUrl.trim());
+    } catch {
+      toast.error("Please enter a valid image URL.");
+      return;
+    }
     const pubId = manualPublicId.trim() || `manual-${Date.now()}`;
     setImages((prev) => updatePriorities([...prev, { image_url: manualUrl.trim(), public_id: pubId }]));
     setManualUrl("");
@@ -184,34 +220,115 @@ export function AdminProjectForm({
     setDragOverIndex(null);
   };
 
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    let currentStack = [...stack];
+    if (tagInput.trim() && !currentStack.some((t) => t.toLowerCase() === tagInput.trim().toLowerCase())) {
+      currentStack = [...currentStack, tagInput.trim()];
+      setStack(currentStack);
+      setTagInput("");
+    }
+
+    if (!title.trim()) {
+      toast.error("Please enter a project title.");
+      return;
+    }
+
+    if (!slug.trim()) {
+      toast.error("Please enter a project slug.");
+      return;
+    }
+
+    if (currentStack.length === 0) {
+      toast.error("Please add at least one tech stack item.");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        formData.append("id", project?.id ?? "");
+        formData.append("title", title.trim());
+        formData.append("slug", slug.trim());
+        formData.append("summary", summary.trim());
+        formData.append("body", body.trim());
+        formData.append("stack", currentStack.join(", "));
+        formData.append("images", JSON.stringify(images));
+        formData.append("socialPosts", JSON.stringify(socialPosts));
+        formData.append("sortOrder", String(sortOrder));
+        if (sourceUrl.trim()) formData.append("sourceUrl", sourceUrl.trim());
+        if (demoUrl.trim()) formData.append("demoUrl", demoUrl.trim());
+        if (isPublished) formData.append("isPublished", "on");
+
+        const res = await action(undefined, formData);
+        if (res && res.error) {
+          const errors = res.error.split(" • ");
+          errors.forEach((err) => {
+            toast.error(err);
+          });
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          toast.error(err.message || "Failed to save project.");
+        }
+      }
+    });
+  };
+
   return (
-    <form action={action} className="grid gap-6 border-2 border-line bg-surface p-6 shadow-[5px_5px_0_var(--line)]">
-      <input name="id" type="hidden" value={project?.id ?? ""} />
-
-      {/* Hidden inputs storing images, stack, and socialPosts */}
-      <input name="images" type="hidden" value={JSON.stringify(images)} />
-      <input name="stack" type="hidden" value={stack.join(", ")} />
-      <input name="socialPosts" type="hidden" value={JSON.stringify(socialPosts)} />
-
+    <form
+      className="grid gap-6 border-2 border-line bg-surface p-6 shadow-[5px_5px_0_var(--line)]"
+      onSubmit={handleSubmit}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <Label>
           Title
-          <Input defaultValue={project?.title} name="title" required />
+          <Input
+            name="title"
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Real-Time Distributed Cache"
+            required
+            value={title}
+          />
         </Label>
         <Label>
           Slug
-          <Input defaultValue={project?.slug} name="slug" pattern="[a-z0-9]+(-[a-z0-9]+)*" required />
+          <Input
+            name="slug"
+            onChange={(e) => setSlug(e.target.value)}
+            pattern="[a-z0-9]+(-[a-z0-9]+)*"
+            placeholder="e.g. distributed-cache"
+            required
+            value={slug}
+          />
         </Label>
       </div>
 
       <Label>
-        Summary
-        <Textarea defaultValue={project?.summary} name="summary" required rows={3} />
+        <div className="flex items-center justify-between">
+          <span>Summary</span>
+          <span className="font-mono text-[10px] text-muted">{summary.length} / 1000 characters</span>
+        </div>
+        <Textarea
+          name="summary"
+          onChange={(e) => setSummary(e.target.value)}
+          placeholder="Brief description of the project..."
+          required
+          rows={3}
+          value={summary}
+        />
       </Label>
 
       <div>
         <Label className="mb-2 block">Case study body (Markdown)</Label>
-        <MarkdownEditor defaultValue={project?.body} name="body" required rows={12} />
+        <MarkdownEditor
+          name="body"
+          onChange={(val) => setBody(val)}
+          required
+          rows={12}
+          value={body}
+        />
       </div>
 
       {/* --- Tech Stack Input UI --- */}
@@ -231,7 +348,7 @@ export function AdminProjectForm({
               {item}
               <button
                 aria-label={`Remove ${item}`}
-                className="text-muted hover:text-danger"
+                className="text-muted hover:text-danger cursor-pointer"
                 onClick={() => handleRemoveTag(item)}
                 type="button"
               >
@@ -266,7 +383,7 @@ export function AdminProjectForm({
                   className={`border px-2 py-0.5 font-mono text-[10px] uppercase transition-all ${
                     isAdded
                       ? "border-line bg-primary/20 text-muted opacity-50 cursor-not-allowed"
-                      : "border-line bg-surface text-ink hover:bg-highlight hover:shadow-[2px_2px_0_var(--line)]"
+                      : "border-line bg-surface text-ink hover:bg-highlight hover:shadow-[2px_2px_0_var(--line)] cursor-pointer"
                   }`}
                   disabled={isAdded}
                   key={tech}
@@ -312,7 +429,7 @@ export function AdminProjectForm({
                   </div>
                 </div>
                 <button
-                  className="ml-3 shrink-0 border border-danger bg-canvas px-2 py-1 font-mono text-[10px] uppercase text-danger hover:bg-danger hover:text-canvas"
+                  className="ml-3 shrink-0 border border-danger bg-canvas px-2 py-1 font-mono text-[10px] uppercase text-danger hover:bg-danger hover:text-canvas cursor-pointer"
                   onClick={() => handleRemoveSocialPost(idx)}
                   type="button"
                 >
@@ -384,7 +501,7 @@ export function AdminProjectForm({
             </p>
           </div>
           <button
-            className="w-fit font-mono text-[11px] uppercase text-secondary underline hover:text-ink"
+            className="w-fit font-mono text-[11px] uppercase text-secondary underline hover:text-ink cursor-pointer"
             onClick={() => setShowManualInput(!showManualInput)}
             type="button"
           >
@@ -407,21 +524,16 @@ export function AdminProjectForm({
           <input
             accept="image/*"
             className="hidden"
+            multiple
             onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
             ref={fileInputRef}
             type="file"
           />
           <div className="font-mono text-xs uppercase font-bold text-ink">
-            {isPending ? "Uploading image to Cloudinary..." : "Click or drag & drop image to upload"}
+            {isPending ? "Uploading images to Cloudinary..." : "Click or drag & drop images to upload (multiple supported)"}
           </div>
-          <p className="mt-1 font-mono text-[10px] text-muted">Supports PNG, JPG, WEBP</p>
+          <p className="mt-1 font-mono text-[10px] text-muted">Supports PNG, JPG, WEBP • Select one or multiple files</p>
         </div>
-
-        {uploadError && (
-          <p className="mt-2 border-2 border-danger bg-surface p-2 font-mono text-xs text-danger">
-            Upload error: {uploadError}
-          </p>
-        )}
 
         {/* Manual URL input fallback */}
         {showManualInput && (
@@ -491,7 +603,7 @@ export function AdminProjectForm({
                     <div className="flex gap-1">
                       <button
                         aria-label="Move left"
-                        className="border border-line bg-canvas px-2 py-1 font-mono text-xs disabled:opacity-30 hover:bg-highlight"
+                        className="border border-line bg-canvas px-2 py-1 font-mono text-xs disabled:opacity-30 hover:bg-highlight cursor-pointer"
                         disabled={idx === 0}
                         onClick={() => handleMove(idx, idx - 1)}
                         title="Move earlier in priority"
@@ -501,7 +613,7 @@ export function AdminProjectForm({
                       </button>
                       <button
                         aria-label="Move right"
-                        className="border border-line bg-canvas px-2 py-1 font-mono text-xs disabled:opacity-30 hover:bg-highlight"
+                        className="border border-line bg-canvas px-2 py-1 font-mono text-xs disabled:opacity-30 hover:bg-highlight cursor-pointer"
                         disabled={idx === images.length - 1}
                         onClick={() => handleMove(idx, idx + 1)}
                         title="Move later in priority"
@@ -516,7 +628,7 @@ export function AdminProjectForm({
                     </span>
 
                     <button
-                      className="border border-danger bg-canvas px-2 py-1 font-mono text-[10px] uppercase text-danger hover:bg-danger hover:text-canvas"
+                      className="border border-danger bg-canvas px-2 py-1 font-mono text-[10px] uppercase text-danger hover:bg-danger hover:text-canvas cursor-pointer"
                       onClick={() => handleRemoveImage(idx)}
                       type="button"
                     >
@@ -535,25 +647,49 @@ export function AdminProjectForm({
       <div className="grid gap-4 sm:grid-cols-3">
         <Label>
           Sort order
-          <Input defaultValue={project?.sortOrder ?? 0} min="0" name="sortOrder" type="number" />
+          <Input
+            min="0"
+            name="sortOrder"
+            onChange={(e) => setSortOrder(Number(e.target.value) || 0)}
+            type="number"
+            value={sortOrder}
+          />
         </Label>
         <Label>
-          Source URL
-          <Input defaultValue={project?.sourceUrl} name="sourceUrl" type="url" />
+          Source URL <span className="font-mono text-[10px] text-muted">(optional)</span>
+          <Input
+            name="sourceUrl"
+            onChange={(e) => setSourceUrl(e.target.value)}
+            placeholder="https://github.com/... (optional)"
+            type="url"
+            value={sourceUrl}
+          />
         </Label>
         <Label>
-          Demo URL
-          <Input defaultValue={project?.demoUrl} name="demoUrl" type="url" />
+          Demo URL <span className="font-mono text-[10px] text-muted">(optional)</span>
+          <Input
+            name="demoUrl"
+            onChange={(e) => setDemoUrl(e.target.value)}
+            placeholder="https://demo.dev (optional)"
+            type="url"
+            value={demoUrl}
+          />
         </Label>
       </div>
 
       <Label className="flex items-center gap-2">
-        <Input className="mt-0 size-4" defaultChecked={project?.isPublished} name="isPublished" type="checkbox" />
+        <Input
+          checked={isPublished}
+          className="mt-0 size-4 cursor-pointer"
+          name="isPublished"
+          onChange={(e) => setIsPublished(e.target.checked)}
+          type="checkbox"
+        />
         Published
       </Label>
 
-      <Button className="w-fit" type="submit">
-        {label}
+      <Button className="w-fit" disabled={isPending} type="submit">
+        {isPending ? "Saving project..." : label}
       </Button>
     </form>
   );

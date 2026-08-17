@@ -15,6 +15,11 @@ import { setResumeUrl } from "@/server/settings/service";
 
 const loginSchema = z.object({ email: z.email(), password: z.string().min(8) });
 
+export type ActionState = {
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+};
+
 function projectFromFormData(formData: FormData) {
   const rawImages = String(formData.get("images") ?? "[]");
   const rawSocialPosts = String(formData.get("socialPosts") ?? "[]");
@@ -23,22 +28,30 @@ function projectFromFormData(formData: FormData) {
   try {
     images = JSON.parse(rawImages);
   } catch {
-    throw new Error("Images must be a valid JSON array.");
+    return { success: false, error: "Images must be a valid JSON array." } as const;
   }
   try {
     socialPosts = JSON.parse(rawSocialPosts);
   } catch {
-    throw new Error("Social posts must be a valid JSON array.");
+    return { success: false, error: "Social posts must be a valid JSON array." } as const;
   }
-  return projectInputSchema.parse({
+
+  const stack = String(formData.get("stack") ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const pendingTag = String(formData.get("pendingTag") ?? "").trim();
+  if (pendingTag && !stack.some((t) => t.toLowerCase() === pendingTag.toLowerCase())) {
+    stack.push(pendingTag);
+  }
+
+  const result = projectInputSchema.safeParse({
     title: formData.get("title"),
     slug: formData.get("slug"),
     summary: formData.get("summary"),
     body: formData.get("body"),
-    stack: String(formData.get("stack") ?? "")
-      .split(",")
-      .map((item) => item.trim())
-      .filter(Boolean),
+    stack,
     socialPosts,
     sourceUrl: formData.get("sourceUrl"),
     demoUrl: formData.get("demoUrl"),
@@ -46,6 +59,20 @@ function projectFromFormData(formData: FormData) {
     isPublished: formData.get("isPublished") === "on",
     sortOrder: Number(formData.get("sortOrder") ?? 0),
   });
+
+  if (!result.success) {
+    const errorMessages = result.error.issues.map((issue) => {
+      const field = issue.path.join(".") || "Form";
+      return `${field}: ${issue.message}`;
+    });
+    return {
+      success: false,
+      error: errorMessages.join(" • "),
+      fieldErrors: result.error.flatten().fieldErrors,
+    } as const;
+  }
+
+  return { success: true, data: result.data } as const;
 }
 
 export async function loginAction(formData: FormData) {
@@ -73,17 +100,51 @@ export async function logoutAction() {
   redirect("/admin/login");
 }
 
-export async function createProjectAction(formData: FormData) {
+export async function createProjectAction(
+  arg1: FormData | ActionState | void | undefined,
+  arg2?: FormData,
+): Promise<ActionState | void> {
   await requireAdmin();
-  await createProject(projectFromFormData(formData));
-  revalidateTag("projects", "max");
+  const formData = arg2 instanceof FormData ? arg2 : (arg1 as FormData);
+  const parsed = projectFromFormData(formData);
+  if (!parsed.success) {
+    return { error: parsed.error, fieldErrors: parsed.fieldErrors };
+  }
+  try {
+    await createProject(parsed.data);
+    revalidateTag("projects", "max");
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      return { error: err.message };
+    }
+    return { error: "Failed to create project." };
+  }
   redirect("/admin");
 }
 
-export async function updateProjectAction(formData: FormData) {
+export async function updateProjectAction(
+  arg1: FormData | ActionState | void | undefined,
+  arg2?: FormData,
+): Promise<ActionState | void> {
   await requireAdmin();
-  await updateProject(String(formData.get("id")), projectFromFormData(formData));
-  revalidateTag("projects", "max");
+  const formData = arg2 instanceof FormData ? arg2 : (arg1 as FormData);
+  const id = String(formData?.get("id") ?? "");
+  if (!id) {
+    return { error: "Project ID is required." };
+  }
+  const parsed = projectFromFormData(formData);
+  if (!parsed.success) {
+    return { error: parsed.error, fieldErrors: parsed.fieldErrors };
+  }
+  try {
+    await updateProject(id, parsed.data);
+    revalidateTag("projects", "max");
+  } catch (err: unknown) {
+    if (err instanceof Error) {
+      return { error: err.message };
+    }
+    return { error: "Failed to update project." };
+  }
   redirect("/admin");
 }
 
@@ -104,13 +165,34 @@ export async function setResumeUrlAction(formData: FormData) {
 }
 
 export async function uploadImageAction(formData: FormData) {
+  const results = await uploadImagesAction(formData);
+  if (!results.length) throw new Error("No image was uploaded.");
+  return results[0];
+}
+
+export async function uploadImagesAction(formData: FormData) {
   await requireAdmin();
-  const file = formData.get("file") as File | null;
-  if (!file || typeof file === "string" || !file.name) {
-    throw new Error("No file provided.");
+  let files = formData.getAll("files") as File[];
+  if (!files || files.length === 0) {
+    const single = formData.get("file") as File | null;
+    if (single && typeof single !== "string" && single.name) {
+      files = [single];
+    }
   }
-  const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
-  const base64 = `data:${file.type || "image/jpeg"};base64,${buffer.toString("base64")}`;
-  return await uploadProjectImage(base64);
+
+  const validFiles = files.filter((f) => f && typeof f !== "string" && f.size > 0);
+  if (!validFiles.length) {
+    throw new Error("No files provided.");
+  }
+
+  const results = await Promise.all(
+    validFiles.map(async (file) => {
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      const base64 = `data:${file.type || "image/jpeg"};base64,${buffer.toString("base64")}`;
+      return await uploadProjectImage(base64);
+    }),
+  );
+
+  return results;
 }
