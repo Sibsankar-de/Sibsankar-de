@@ -76,6 +76,22 @@ body {
   outline-offset: 3px;
 }
 
+#nprogress {
+  pointer-events: none;
+}
+
+#nprogress .bar {
+  background: var(--primary) !important;
+  border-bottom: 2px solid var(--line) !important;
+  box-shadow: 0 2px 0 var(--line) !important;
+  position: fixed;
+  z-index: 99999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

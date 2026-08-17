@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Mono, Space_Grotesk } from "next/font/google";
+import NextTopLoader from "nextjs-toploader";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import "./globals.css";
@@ -95,6 +96,18 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" suppressHydrationWarning>
       <body className={`${spaceGrotesk.variable} ${dmMono.variable} min-h-screen bg-canvas font-sans text-ink`}>
         <ThemeProvider>
+          <NextTopLoader
+            color="var(--primary)"
+            crawl={true}
+            crawlSpeed={200}
+            easing="ease"
+            height={4}
+            initialPosition={0.08}
+            shadow="0 0 10px var(--primary), 0 0 5px var(--primary)"
+            showSpinner={false}
+            speed={200}
+            zIndex={99999}
+          />
           {children}
           <Toaster
             position="top-right"
